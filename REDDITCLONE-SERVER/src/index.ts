@@ -1,3 +1,4 @@
+import "reflect-metadata";
 import { MikroORM} from "@mikro-orm/core";
 import { __prod__ } from "./constants";
 import { Post } from "./entities/Post";
@@ -6,6 +7,7 @@ import express from 'express';
 import {ApolloServer} from 'apollo-server-express';
 import {buildSchema} from 'type-graphql';
 import { HelloResolver } from "./resolvers/hello";
+import { PostResolver } from "./resolvers/post";
 
 
 const main = async() => {
@@ -23,15 +25,17 @@ const main = async() => {
 
     const apolloServer = new ApolloServer({
         schema: await buildSchema({
-            resolvers: [HelloResolver],
+            resolvers: [HelloResolver, PostResolver],
             validate: false
         }),
+
+        // function that returns an object for the context
+        context: () => ({em: orm.em})
     });
+    
 
     await apolloServer.start();
-    // create graphql endpoint for us on express
     apolloServer.applyMiddleware({app});
-
     app.listen(4000, () => {
         console.log('server started on localhost:4000')
     })
