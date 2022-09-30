@@ -4,7 +4,7 @@ import { ObjectType, Field } from "type-graphql"
 // with Field() we can choose what to expose on the graphql schema
 @ObjectType()
 @Entity()
-export class Post {
+export class User {
     [OptionalProps]?: "updatedAt" | "createdAt";
 
     @Field()
@@ -20,6 +20,10 @@ export class Post {
     updatedAt = new Date();
 
     @Field()
-    @Property({type: 'text'})
-    title!: string;
+    @Property({type: 'text', unique: true})
+    username!: string;
+
+
+    @Property({type: "text"})
+    password!: string;
 }
