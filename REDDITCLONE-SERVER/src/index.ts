@@ -8,7 +8,11 @@ import {buildSchema} from 'type-graphql';
 import { HelloResolver } from "./resolvers/hello";
 import { PostResolver } from "./resolvers/post";
 import { UserResolver } from "./resolvers/user";
-import path from "path";
+import * as redis from 'redis';
+import session from 'express-session';
+import connectRedis from 'connect-redis';
+import { MyContext } from "./types";
+import { ApolloServerPluginLandingPageGraphQLPlayground} from 'apollo-server-core';
 
 
 const main = async() => {
@@ -24,19 +28,49 @@ const main = async() => {
     // console.log(posts); 
     const app = express();
 
+    const RedisStore = connectRedis(session)
+    const redisClient = redis.createClient({legacyMode: true});
+    await redisClient.connect();
+    // in between app and applymiddleware, need to use session middleware inside apollo middleware
+    app.use(
+        session({
+            name: "qid",
+            store: new RedisStore({client: redisClient as any,
+                disableTouch: true,
+            }),
+            cookie: {
+                maxAge: 1000 * 60 * 60 * 24 * 365 * 10, // 10 years
+                httpOnly: true, // good for security, in frontend js can't access cookie
+                sameSite: 'lax', // csrf
+                secure: __prod__, // cookie only works in https
+                
+            },
+            saveUninitialized: false,
+            secret: 'something',
+            resave: false,
+        })
+    )
+
     const apolloServer = new ApolloServer({
         schema: await buildSchema({
             resolvers: [HelloResolver, PostResolver, UserResolver],
-            validate: false
+            validate: false,
         }),
-
+        // adding the plug in here forces apollo to use graphql playground,
+        // resulting in the url to be localhost:4000 instead of redirecting to
+        // studio.apollographql.com
+        plugins: [ApolloServerPluginLandingPageGraphQLPlayground],
         // function that returns an object for the context
-        context: () => ({em: orm.em})
+        context: ({req, res}): MyContext => ({em: orm.em, req, res}),
+        csrfPrevention: true,
+
     });
     
 
     await apolloServer.start();
-    apolloServer.applyMiddleware({app});
+    // const corsOptions = { origin: "https://studio.apollographql.com", credentials: true}
+    // apolloServer.applyMiddleware({app, cors: corsOptions});
+    apolloServer.applyMiddleware({app})
     app.listen(4000, () => {
         console.log('server started on localhost:4000')
     })
