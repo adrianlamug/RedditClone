@@ -11,8 +11,9 @@ import { UserResolver } from "./resolvers/user";
 import * as redis from 'redis';
 import session from 'express-session';
 import connectRedis from 'connect-redis';
-import { MyContext } from "./types";
 import { ApolloServerPluginLandingPageGraphQLPlayground} from 'apollo-server-core';
+import cors from "cors";
+
 
 
 const main = async() => {
@@ -32,6 +33,12 @@ const main = async() => {
     const redisClient = redis.createClient({legacyMode: true});
     await redisClient.connect();
     // in between app and applymiddleware, need to use session middleware inside apollo middleware
+    app.use(
+        cors({
+            origin: "http://localhost:3000",
+            credentials: true
+        })
+    );
     app.use(
         session({
             name: "qid",
@@ -61,7 +68,7 @@ const main = async() => {
         // studio.apollographql.com
         plugins: [ApolloServerPluginLandingPageGraphQLPlayground],
         // function that returns an object for the context
-        context: ({req, res}): MyContext => ({em: orm.em, req, res}),
+        context: ({req, res}) => ({em: orm.em, req, res}),
         csrfPrevention: true,
 
     });
@@ -70,7 +77,7 @@ const main = async() => {
     await apolloServer.start();
     // const corsOptions = { origin: "https://studio.apollographql.com", credentials: true}
     // apolloServer.applyMiddleware({app, cors: corsOptions});
-    apolloServer.applyMiddleware({app})
+    apolloServer.applyMiddleware({app, cors: {origin: false}})
     app.listen(4000, () => {
         console.log('server started on localhost:4000')
     })
