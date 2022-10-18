@@ -9,6 +9,7 @@ export const NavBar: React.FC<NavBarProps> = ({}) => {
   const [{ fetching: logoutFetching }, logout] = useLogoutMutation();
   const [{ data, fetching }] = useMeQuery();
 
+  console.log("data", data);
   let body = null;
 
   // data loading
@@ -17,7 +18,7 @@ export const NavBar: React.FC<NavBarProps> = ({}) => {
     //user not logged in
   } else if (!data?.me) {
     body = (
-      <>
+      <div>
         <NextLink href="/login">
           <Link color={"white"} mr={2}>
             login
@@ -26,13 +27,15 @@ export const NavBar: React.FC<NavBarProps> = ({}) => {
         <NextLink href="/register">
           <Link color={"white"}>register</Link>
         </NextLink>
-      </>
+      </div>
     );
     // user is logged in
   } else {
     body = (
       <Flex>
-        <Box mr={2}>{data.me.username}</Box>
+        <Box color={"white"} mr={2}>
+          {data.me.username}
+        </Box>
         <Button
           variant="link"
           onClick={() => {

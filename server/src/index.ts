@@ -1,26 +1,45 @@
-import "reflect-metadata";
-import { MikroORM} from "@mikro-orm/core";
-import { COOKIE_NAME, __prod__ } from "./constants";
-import mikroConfig from "./mikro-orm.config";
+import { ApolloServerPluginLandingPageGraphQLPlayground } from 'apollo-server-core';
+import { ApolloServer } from 'apollo-server-express';
+import connectRedis from 'connect-redis';
+import cors from "cors";
 import express from 'express';
-import {ApolloServer} from 'apollo-server-express';
-import {buildSchema} from 'type-graphql';
+import session from 'express-session';
+import Redis from 'ioredis';
+import "reflect-metadata";
+import { buildSchema } from 'type-graphql';
+import { DataSource } from 'typeorm';
+import { COOKIE_NAME, DATABASE_NAME, DB_PASS, DB_USER, __prod__ } from "./constants";
+import { Post } from "./entities/Post";
+import { User } from "./entities/User";
 import { HelloResolver } from "./resolvers/hello";
 import { PostResolver } from "./resolvers/post";
 import { UserResolver } from "./resolvers/user";
-import * as redis from 'redis';
-import session from 'express-session';
-import connectRedis from 'connect-redis';
-import { ApolloServerPluginLandingPageGraphQLPlayground} from 'apollo-server-core';
-import cors from "cors";
 
+export const dataSource = new DataSource({
+    type:'postgres',
+    database: DATABASE_NAME,
+    username: DB_USER,
+    password: DB_PASS,
+    logging: true,
+    synchronize: true,
+    entities: [Post, User]
+});
 
 
 const main = async() => {
     // connect to the database
-    const  orm = await MikroORM.init(mikroConfig);
+    dataSource.initialize()
+        .then(() => {
+            console.log("Data Source initialized")
+        })
+        .catch((err) => {
+            console.error("Error: ", err)
+        })
+    // const  orm = await MikroORM.init(mikroConfig);
+
+
     // run migrations
-    await orm.getMigrator().up()
+    // await orm.getMigrator().up()
     //run sql
     // const post = orm.em.create(Post, {title: 'my first post'});
     // what to insert into the database
@@ -30,8 +49,9 @@ const main = async() => {
     const app = express();
 
     const RedisStore = connectRedis(session)
-    const redisClient = redis.createClient({legacyMode: true});
-    await redisClient.connect();
+    const redis = new Redis();
+    // const redisClient = redis.createClient({legacyMode: true});
+    // await redis.connect();
     // in between app and applymiddleware, need to use session middleware inside apollo middleware
     app.use(
         cors({
@@ -42,7 +62,7 @@ const main = async() => {
     app.use(
         session({
             name: COOKIE_NAME,
-            store: new RedisStore({client: redisClient as any,
+            store: new RedisStore({client: redis as any,
                 disableTouch: true,
             }),
             cookie: {
@@ -68,7 +88,7 @@ const main = async() => {
         // studio.apollographql.com
         plugins: [ApolloServerPluginLandingPageGraphQLPlayground],
         // function that returns an object for the context
-        context: ({req, res}) => ({em: orm.em, req, res}),
+        context: ({req, res}) => ({req, res, redis}),
         csrfPrevention: true,
 
     });
